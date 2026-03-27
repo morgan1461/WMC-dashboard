@@ -19,8 +19,13 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/"):
     Returns:
         None - saves cleaned csv files to repo directory "K:/AP/TTM/Data/WMC Dashboard/BusState Cleaned"
     '''
+    #########################################3
+    # Add input validation for year and month?
+    ##########################################
+
     #timer
     start = time.perf_counter()
+    print(f"Starting busstate processing for {month}/{year}...")
 
     data_dir = os.path.join(root_dir, "Data/APC Data") # contains zipped raw busstate txt files
     repo_dir = os.path.join(root_dir, "Data/WMC Dashboard/BusState Cleaned") # temp file to store cleaned data - change in future if necessary
@@ -36,21 +41,30 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/"):
         for f in os.listdir(data_dir) 
         if pattern.search(f)]
 
+    #print(busstates[:5]) 
     print(f"Found {len(busstates)} busstate files for {month}/{year} in '{data_dir}'")
 
     # empty dataframe to hold busstate data
     df = pd.DataFrame()
 
+    print(f"Unzipping and processing busstate files for {month}/{year}...")
     # loop through each busstate file, unzip, process, and add to main dataframe
+    # definitely a way to make this more performant - will revist later
     for busstate in busstates:
         raw_data = unzip_busstate_to_df(busstate)
         cleaned_data = process_busstate(raw_data)
         df = pd.concat([df, cleaned_data], ignore_index=True)
 
     print(f"Combined dataframe has {len(df)} records for {month}/{year}")
+    # print(df.head())
+    # print(df.info())
+
+    # need to change year to 4 digit format got sort and save
+    full_year = int("20" + year)
+    # print(f"Full year is {full_year} and type is {type(full_year)}")
 
     # sort and save
-    sort_and_save(df, repo_dir, year)
+    sort_and_save(df, repo_dir, full_year)
 
     end = time.perf_counter()
     print(f"Finished processing busstate data for {month}/{year} in {end - start:.2f} seconds. Cleaned files saved to '{repo_dir}'")
@@ -158,7 +172,7 @@ def process_busstate(df):
     return df
 
 # Replicate the 'Sort and save function' save it into the repo directory
-def sort_and_save(df, output_dir, year=2025):
+def sort_and_save(df, output_dir, year):
     """
     Save monthly busstate files - this will act weirdly if there is already existing data - will revisit later.
 
