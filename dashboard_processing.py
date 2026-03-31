@@ -171,7 +171,8 @@ def process_mc_busstate(busstate_df, stops_df, stop_inventory):
     processed = (
         busstate_df
         # filtering directly for med center routes within 1500 and 1600
-        .loc[(busstate_df["RUN_ID"] >= 1500) & (busstate_df["RUN_ID"] < 1600)]
+        # NOTE: R code uses > 1500 (exclusive), matching that boundary here
+        .loc[(busstate_df["RUN_ID"] > 1500) & (busstate_df["RUN_ID"] < 1600)]
         .copy()
     )
 
@@ -320,6 +321,13 @@ def calculate_headways(df, stop_num):
     )
 
     df_hw["HEADWAY"] = df_hw.groupby("DATE")["ARRIVAL"].diff()
+
+    # Filter to valid headways only - matches R: filter(HEADWAY < 22 & HEADWAY >= 0 & !is.na(HEADWAY))
+    # Removes cross-day artifacts (first record of each day) and outliers > one loop cycle
+    df_hw = df_hw.loc[
+        (df_hw["HEADWAY"] < 22) & (df_hw["HEADWAY"] >= 0) & (df_hw["HEADWAY"].notna())
+    ].copy()
+
     df_hw["DATE"] = pd.to_datetime(df_hw["DATE"])
     #NOTE: Eventually change this to convert midnight BEFORE headway>?
     df_hw["DATE"] = df_hw["DATE"].where(df_hw["HOUR"] != 0, df_hw["DATE"] - pd.Timedelta(days=1))
