@@ -22,7 +22,7 @@ MONTH_ABBREV_MAP = {
 
 CAPACITY_TIME_ORDER = ["5-6a", "6-7a", "7-8a", "8a-2p", "2-8p", "8-10p", "10p-12a"]
 RIDECHECK_TIME_ORDER = ["5:30-7a", "7-10a", "10a-4p", "4-7p", "7p-12a", "12-5a"]
-VALID_RUNTIME_LEGS = ["CARMACK 2 - JOHN HERRICK LOOP", "JOHN HERRICK LOOP - CARMACK 2"]
+VALID_RUNTIME_LEGS = ["CARMACK 2 - UH/DOAN", "UH/DOAN - CARMACK 2"]
 
 ############
 # helper functions for processing and metric calculations
@@ -347,11 +347,11 @@ def build_headway_metric(mc_busstate):
     '''
     carmack_2_headways = calculate_headways(mc_busstate, 403)
     carmack_3_headways = calculate_headways(mc_busstate, 404)
-    transport_hub_headways = calculate_headways(mc_busstate, 405)
+    uh_doan_combined_headways = calculate_headways(mc_busstate, 999)
 
     # bind to one dataframe
     headway_df = pd.concat(
-        [carmack_2_headways, carmack_3_headways, transport_hub_headways], ignore_index=True
+        [carmack_2_headways, carmack_3_headways, uh_doan_combined_headways], ignore_index=True
     )
 
     # Set time frames and headways with ~10 minutes on either end for adjustment 
@@ -472,17 +472,27 @@ def build_capacity_metric(mc_busstate):
         tuple: (mc_loads, mc_rider_df)
     """
 
-    # this will need to be updated when stops change
-    mc_rider_df = mc_busstate.loc[mc_busstate["STOP_NAME"] == "JOHN HERRICK LOOP"].copy()
-    
-    # load as max of boarding or alighitngs at the thub
-    mc_rider_df["LOAD"] = mc_rider_df[["BOARDINGS", "ALIGHTINGS"]].max(axis=1)
+    # terminal rows are combined to STOP=999; collapse to one record per loop
+    # to avoid double-counting when both UH and Doan appear in the same cycle
+    mc_rider_df = mc_busstate.loc[mc_busstate["STOP"] == 999].copy()
+    mc_rider_df = (
+        mc_rider_df
+        .sort_values(["BUS_ID", "DATE", "COUNT", "ARRIVAL"])
+        .groupby(["BUS_ID", "DATE", "COUNT"], as_index=False)
+        .agg(
+            HOUR=("HOUR", "min"),
+            MIN=("MIN", "min"),
+            BOARDINGS=("BOARDINGS", "sum"),
+            ALIGHTINGS=("ALIGHTINGS", "sum"),
+            LOAD=("LOAD", "max"),
+        )
+    )
 
+    # load category is based on max in-vehicle load across the combined terminal event
+    mc_rider_df["SIZE"] = mc_rider_df["LOAD"].apply(assign_load_category)
     mc_rider_df["TIME"] = mc_rider_df["HOUR"].apply(assign_capacity_time_bucket)
 
     mc_loads_time = mc_rider_df.groupby("TIME").size().reset_index(name="LOOPS")
-
-    mc_rider_df["SIZE"] = mc_rider_df["LOAD"].apply(assign_load_category)
 
     # assign by hour and load cat
     mc_loads_pax = (
@@ -587,11 +597,18 @@ def build_travel_time_metric(mc_busstate, mc_rider_df):
         .copy()
     )
 
+    # Normalize split terminal stops into a single runtime label.
+    mc_rt["STOP_FOR_LEG"] = np.where(
+        mc_rt["STOP"].isin([37, 401, 999]),
+        "UH/DOAN",
+        np.where(mc_rt["STOP"] == 403, "CARMACK 2", mc_rt["STOP_NAME"]),
+    )
+
     # lag values within bus/day
     mc_rt["PREV_DEPARTURE"] = mc_rt.groupby(["BUS_ID", "DATE"])["DEPARTURE"].shift(1)
-    mc_rt["PREV_STOP_NAME"] = mc_rt.groupby(["BUS_ID", "DATE"])["STOP_NAME"].shift(1)
+    mc_rt["PREV_STOP_NAME"] = mc_rt.groupby(["BUS_ID", "DATE"])["STOP_FOR_LEG"].shift(1)
     mc_rt["RUN_TIME"] = mc_rt["ARRIVAL"] - mc_rt["PREV_DEPARTURE"]
-    mc_rt["LEG"] = mc_rt["PREV_STOP_NAME"] + " - " + mc_rt["STOP_NAME"]
+    mc_rt["LEG"] = mc_rt["PREV_STOP_NAME"] + " - " + mc_rt["STOP_FOR_LEG"]
 
     # filter to just the two legs of interest
     mc_rt = mc_rt.loc[
@@ -601,7 +618,7 @@ def build_travel_time_metric(mc_busstate, mc_rider_df):
         & (mc_rt["RUN_TIME"] < 20)
     ].copy()
 
-    # assign time buckets based on arrival time at John Herrick Loop
+    # assign time buckets based on arrival time at the combined terminal stop
     mc_rt["HOUR_PARTIAL"] = mc_rt["HOUR"] + (mc_rt["MIN"] / 60)
     mc_rt["TIME"] = assign_ridecheck_time(mc_rt["HOUR_PARTIAL"])
 
@@ -680,6 +697,12 @@ def run_dashboard_metrics(year, month, root_dir="K:/AP/TTM/", save_outputs=True)
     end = time.perf_counter()
     print(f"Finished processing busstate data for {month}/{year} in {end - start:.2f} seconds")
 
+    ############
+    # HERE COMBINE UH AND DOAN
+
+
+
+
     print(f'Calculating dashboard metrics for medical center route...')
     headway_summary = build_headway_metric(mc_busstate)
     capacity_summary, mc_rider_df = build_capacity_metric(mc_busstate)
@@ -708,3 +731,32 @@ def run_dashboard_metrics(year, month, root_dir="K:/AP/TTM/", save_outputs=True)
     #     "year_full": year_full,
     #     "month_full": month_full,
     # }
+
+
+#####################################################################################
+# Going to combine UH and Doan stops once upstream in the process and treat as one stop as before to test the metrics.
+#####################################################################################
+
+def combine_uh_doan_stops(df):
+    """
+    Combine University Hospital and Doan stops into a single stop in the stop inventory for metrics.
+
+    Args:
+        stop_inventory (DataFrame): A DataFrame containing the stop inventory information.
+    Returns:
+        DataFrame: A DataFrame with University Hospital and Doan stops combined into a single stop with ID of 999.
+    """
+    df = df.copy()
+
+    # will keep the original stop column for UH and Doan for reference, but assign a new combined stop - potential for debugging purposes
+    # Assigning the number 999 for combined stop - no actual meaning for this and an unused stop number
+    df['STOP_ORIGINAL'] = df['STOP']
+
+    doan_stop_id = 37
+    uh_stop_id = 401
+ 
+    combined_id = 999 # completely abritary 
+
+    df.loc[df['STOP'].isin([doan_stop_id, uh_stop_id]), 'STOP'] = combined_id
+
+    return df
