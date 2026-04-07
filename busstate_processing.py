@@ -28,7 +28,7 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/"):
     print(f"Starting busstate processing for {month}/{year}...")
 
     data_dir = os.path.join(root_dir, "Data/APC Data") # contains zipped raw busstate txt files
-    repo_dir = os.path.join(root_dir, "Data/WMC Dashboard/BusState Cleaned") # temp file to store cleaned data - change in future if necessary
+    repo_dir = os.path.join(root_dir, "Data/CM_WMC-Dashboard/BusState Cleaned") # temp file to store cleaned data - change in future if necessary
 
     # Bustate naming convention is busstate0####DDMMYY.txt -> #### is unique 4 digit bus identifier
     # IF this ever changes in the future, change the regex pattern below to reflect new naming convention
