@@ -5,30 +5,39 @@ import time
 import os
 import re
 
-def busstate_processing(year, month, root_dir = "K:/AP/TTM/"):
+def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = os.getcwd()):
     '''
     Process all busstate zip files in the data directory and save cleaned csv files to the repo directory
 
-    Params:
+    Args:
         year (str): year of busstate data to process (e.g. "25") 
             NOTE: MUST BE IN 2 DIGIT FORMAT
         month (str): month of busstate data to process (e.g. "10") 
             NOTE: MUST BE IN 2 DIGIT FORMAT
         root_dir (str): root directory path - SHOULD ONLY NEED CHANGED IF ON UNIX SYSTEM
+        repo_dir (str): repository directory path - default is current working directory
 
     Returns:
         None - saves cleaned csv files to repo directory "K:/AP/TTM/Data/WMC Dashboard/BusState Cleaned"
     '''
-    #########################################3
-    # Add input validation for year and month?
-    ##########################################
+    # Validate year and month inputs
+    if not isinstance(year, str) or len(year) != 2 or not year.isdigit():
+        raise ValueError("Year must be a 2-digit string (e.g., '25')")
+    
+    if not isinstance(month, str) or len(month) != 2 or not month.isdigit():
+        raise ValueError("Month must be a 2-digit string (e.g., '09')")
+    
+    if not (1 <= int(month) <= 12):
+        raise ValueError("Month must be between 01 and 12")
+    # convert year to full year format for later use in filtering and saving
+    full_year = int("20" + year)
 
     #timer
     start = time.perf_counter()
     print(f"Starting busstate processing for {month}/{year}...")
 
     data_dir = os.path.join(root_dir, "Data/APC Data") # contains zipped raw busstate txt files
-    repo_dir = os.path.join(root_dir, "Data/CM_WMC-Dashboard/BusState Cleaned") # temp file to store cleaned data - change in future if necessary
+    repo_dir = os.path.join(current_dir, "BusState Cleaned") # temp file to store cleaned data - change in future if necessary
 
     # Bustate naming convention is busstate0####DDMMYY.txt -> #### is unique 4 digit bus identifier
     # IF this ever changes in the future, change the regex pattern below to reflect new naming convention
@@ -58,9 +67,7 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/"):
     print(f"Combined dataframe has {len(df)} records for {month}/{year}")
     # print(df.head())
     # print(df.info())
-
-    # need to change year to 4 digit format got sort and save
-    full_year = int("20" + year)
+    
     # print(f"Full year is {full_year} and type is {type(full_year)}")
 
     # sort and save
