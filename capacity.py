@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+import combine_uh_doan_stops as combine
 
 def create_capacity(busstate_consolidated):
     '''
@@ -9,7 +11,20 @@ def create_capacity(busstate_consolidated):
     Returns:
         pd.DataFrame: A summary dataframe containing the capacity metrics for the medical center monthly dashboard.
     '''
-    mc_rider = combine_uh_doan_stops(busstate_consolidated) # investigate this for werid results?
+    mc_rider = combine.combine_uh_doan_stops(busstate_consolidated) # investigate this for werid results?
+
+    # Legacy R logic excludes suspect 1705 events only when boardings or
+    # alightings exceed 60 rather than dropping the bus entirely.
+    mc_rider = mc_rider.loc[
+        ~(
+            (mc_rider['BUS_ID'] == 1705)
+            & ((mc_rider['BOARDINGS'] > 60) | (mc_rider['ALIGHTINGS'] > 60))
+        )
+    ].copy()
+
+    # print("="*50)
+    # print((mc_rider['BOARDINGS'].max() >= 65) | (mc_rider['ALIGHTINGS'].max() >= 65)) # investigate this for werid results?
+    # print("="*50)
     # Investigate the  66+ passengers load 
     # mc_rider['LOAD'].describe()
     # mc_rider[mc_rider['LOAD'] > 64]
@@ -18,78 +33,6 @@ def create_capacity(busstate_consolidated):
     capacity_table = calculate_capacity_dashboard_metrics(mc_rider_combined_stop)
 
     return capacity_table
-
-def combine_uh_doan_stops(df, max_gap_minutes = 5):
-    # combine UH and Doan stops for capacity
-    # Carmack -> UH is inbound, Doan -> Carmack is outbound
-    # Treating UH and Doan as one stop.
-    """
-    Combine University Hospital and Doan stops into a single stop in the stop inventory for metrics.
-
-    Args:
-        df (DataFrame): The consolidated bus state DataFrame containing stop-level data.
-        max_gap_minutes (int, optional): The maximum time gap in minutes between the UH and Doan stops to consider them as a pair. Defaults to 5 minutes.
-
-    Returns:
-        DataFrame: A DataFrame with University Hospital and Doan stops combined into a single stop with ID of 999.
-    """
-    df = df.copy()
-
-    # will keep the original stop column for UH and Doan for reference, but assign a new combined stop - potential for debugging purposes
-    # Assigning the number 999 for combined stop - no actual meaning for this and an unused stop number
-    df['STOP_ORIGINAL'] = df['STOP_ID'] # keep original stop id for reference
-
-    doan_stop_id = 37
-    uh_stop_id = 401
- 
-    combined_id = 999 # completely arbitrary 
-
-    max_gap = pd.Timedelta(minutes=max_gap_minutes)
-
-    sort_cols = ['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE']
-    df = df.sort_values(sort_cols).reset_index(drop=True)
-
-    combined_rows = []
-    row_index = 0
-
-    while row_index < len(df):
-        current = df.iloc[row_index]
-
-        if row_index < len(df) - 1:
-            next_row = df.iloc[row_index + 1]
-
-            # check if this is a UH->Doan pair within max_gap
-            is_candidate_pair = (
-                current['STOP_ID'] == uh_stop_id
-                and next_row['STOP_ID'] == doan_stop_id
-                and current['BUS_ID'] == next_row['BUS_ID']
-                and current['DATE'] == next_row['DATE']
-                and current['RUN_ID'] == next_row['RUN_ID']
-                and pd.Timedelta(0) <= (next_row['ARRIVAL'] - current['DEPARTURE']) <= max_gap
-            )
-
-            if is_candidate_pair:
-                merged = current.copy()
-                merged['STOP_ID'] = combined_id
-                merged['STOP_ORIGINAL'] = f"{uh_stop_id}_{doan_stop_id}"
-                merged['BOARDINGS'] = current['BOARDINGS'] + next_row['BOARDINGS']
-                merged['ALIGHTINGS'] = current['ALIGHTINGS'] + next_row['ALIGHTINGS']
-                merged['LOAD'] = max(current['LOAD'], next_row['LOAD'])
-                merged['DEPARTURE'] = next_row['DEPARTURE']
-                merged['DWELL'] = merged['DEPARTURE'] - merged['ARRIVAL']
-                merged['HOUR'] = merged['ARRIVAL'].hour
-                merged['MINUTE'] = merged['ARRIVAL'].minute
-
-                combined_rows.append(merged)
-                row_index += 2  # skip next row because it was merged
-                continue
-
-        # if not merged, just add current
-        combined_rows.append(current.copy())
-        row_index += 1
-
-    return pd.DataFrame(combined_rows).reset_index(drop=True)
-
 
 #mc_rider = combine_uh_doan_stops(mc_busstate_consolidated)
 def calculate_capacity_dashboard_metrics(busstate_df):

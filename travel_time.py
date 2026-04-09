@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import combine_uh_doan_stops as combine
 
 def create_travel_time(busstate_df):
     '''
@@ -11,10 +12,13 @@ def create_travel_time(busstate_df):
     Returns:
         pd.DataFrame: Travel time summary table with completed loop counts and average runtime by timeframe.
     '''
+    # combine UH and Doan stops for travel time calculations
+    busstate_df = combine.combine_uh_doan_stops(busstate_df)
+    
     time_order = ['5:30-7a', '7-10a', '10a-4p', '4-7p', '7p-12a', '12-5a']
-    stop_labels = {403: 'CARMACK 2', 37: 'DOAN HALL'}
-    valid_legs = ['CARMACK 2 - DOAN HALL', 'DOAN HALL - CARMACK 2']
-    completed_loop_leg = 'DOAN HALL - CARMACK 2'
+    stop_labels = {403: 'CARMACK 2', 999: 'UH/DOAN'}
+    valid_legs = ['CARMACK 2 - UH/DOAN', 'UH/DOAN - CARMACK 2']
+    completed_loop_leg = 'UH/DOAN - CARMACK 2'
 
     def assign_ridecheck_time(hour_value):
         if 5.5 <= hour_value < 7:
@@ -29,7 +33,7 @@ def create_travel_time(busstate_df):
             return '7p-12a'
         return '12-5a'
 
-    mc_rt = busstate_df.loc[busstate_df['STOP_ID'].isin([403, 37])].copy()
+    mc_rt = busstate_df.loc[busstate_df['STOP_ID'].isin([403, 999])].copy()
     mc_rt = mc_rt.sort_values(['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL']).reset_index(drop=True)
 
     same_trip = (

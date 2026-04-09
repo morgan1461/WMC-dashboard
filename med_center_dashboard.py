@@ -29,18 +29,18 @@ def med_center_dashboard(year, month):
     
     # convert to full year and map to month abbrev
     months = {
-        "01": "Jan",
-        "02": "Feb",
-        "03": "Mar",
-        "04": "Apr",
-        "05": "May",
-        "06": "Jun",
-        "07": "Jul",
-        "08": "Aug",
-        "09": "Sep",
-        "10": "Oct",
-        "11": "Nov",
-        "12": "Dec"
+        "01": "JAN",
+        "02": "FEB",
+        "03": "MAR",
+        "04": "APR",
+        "05": "MAY",
+        "06": "JUN",
+        "07": "JUL",
+        "08": "AUG",
+        "09": "SEP",
+        "10": "OCT",
+        "11": "NOV",
+        "12": "DEC"
     }
     full_year = int("20" + year)
     month_abbrev = months[month]
@@ -52,6 +52,7 @@ def med_center_dashboard(year, month):
     # process busstate data for medical center route
     mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev)
     # NOTE: this could be used for future internal dashboard use
+    mc_busstate_consolidated.to_csv(pathlib.Path(os.getcwd()) / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
 
     print("Calculating headway, capacity, and travel time metrics for the dashboard...")
 
@@ -62,10 +63,10 @@ def med_center_dashboard(year, month):
 
     print("Metrics below calculated, saving to .csv...")
 
-    # preview
-    print(headway_table)
-    print(capacity_table)  
-    print(travel_time_table)
+    # # preview
+    # print(headway_table)
+    # print(capacity_table)  
+    # print(travel_time_table)
 
     # save all metrics tables as .csv in 
     metric_dir = pathlib.Path(os.getcwd()) / "Dashboard Data" / f"{full_year}" / f"{month_abbrev}"
