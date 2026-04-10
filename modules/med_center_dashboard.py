@@ -1,11 +1,13 @@
 import time
 import pandas as pd
 import numpy as np
-import os
 import pathlib
 import headway
 import capacity
 import travel_time
+
+MODULE_DIR = pathlib.Path(__file__).resolve().parent
+REPO_ROOT = MODULE_DIR.parent
 
 def med_center_dashboard(year, month):
     '''
@@ -15,7 +17,7 @@ def med_center_dashboard(year, month):
         year (str): The 2 digit year of the busstate data.
         month (str): The 2 digit month of the busstate data.
     Returns:
-        None: This function saves 3 .csv files to ./Dashboard Data/YEAR/MONTH/
+        None: This function saves 3 .csv files to ./dashboard_data/YEAR/MONTH/
     '''
     # Month and year input validation and formatting
     if not isinstance(year, str) or len(year) != 2 or not year.isdigit():
@@ -52,7 +54,7 @@ def med_center_dashboard(year, month):
     # process busstate data for medical center route
     mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev)
     # NOTE: this could be used for future internal dashboard use
-    #mc_busstate_consolidated.to_csv(pathlib.Path(os.getcwd()) / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
+    #mc_busstate_consolidated.to_csv(REPO_ROOT / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
 
     print("Calculating headway, capacity, and travel time metrics for the dashboard...")
 
@@ -69,7 +71,7 @@ def med_center_dashboard(year, month):
     # print(travel_time_table)
 
     # save all metrics tables as .csv in 
-    metric_dir = pathlib.Path(os.getcwd()) / "Dashboard Data" / f"{full_year}" / f"{month_abbrev}"
+    metric_dir = REPO_ROOT / "dashboard_data" / f"{full_year}" / f"{month_abbrev}"
     metric_dir.mkdir(parents = True, exist_ok = True) # create directory if it doesn't exist
 
     headway_table.to_csv(metric_dir / f'1-Headway-{month_abbrev}-{full_year}.csv')
@@ -95,7 +97,7 @@ def build_stops_df():
         stops_df (pd.DataFrame): dataframe with stop id, stop name, and lat/lon coordinates for all stops in the pattern stops file
     '''
     # set directory paths for stop data - stored as 2 csv files in ./stops/
-    stop_data_dir = pathlib.Path(os.getcwd()) / "stops"
+    stop_data_dir = REPO_ROOT / "stops"
     pattern_stops_path = stop_data_dir / "pattern_stops.csv"
     stop_inventory_path = stop_data_dir / "stop_inventory.csv"
 
@@ -159,8 +161,8 @@ def process_mc_busstate(year, month):
         DataFrame: A pandas DataFrame containing the processed busstate data for the medical center route.
     """
 
-    busstate_dir = pathlib.Path(os.getcwd()) / "BusState Cleaned"
-    busstate_path = os.path.normpath(os.path.join(busstate_dir, f"{year}-{month}-busstate.csv"))
+    busstate_dir = REPO_ROOT / "busstate_cleaned"
+    busstate_path = busstate_dir / f"{year}-{month}-busstate.csv"
     busstate_df = pd.read_csv(busstate_path) # Now cleaned busstate data read in
 
     # Process the busstate data for medical center routes

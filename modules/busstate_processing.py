@@ -5,7 +5,10 @@ import time
 import os
 import re
 
-def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = os.getcwd()):
+MODULE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = MODULE_DIR.parent
+
+def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None):
     '''
     Process all busstate zip files in the data directory and save cleaned csv files to the repo directory
 
@@ -15,10 +18,10 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = os.g
         month (str): month of busstate data to process (e.g. "10") 
             NOTE: MUST BE IN 2 DIGIT FORMAT
         root_dir (str): root directory path - SHOULD ONLY NEED CHANGED IF ON UNIX SYSTEM
-        repo_dir (str): repository directory path - default is current working directory
+        current_dir (str | Path | None): optional repository root override
 
     Returns:
-        None - saves cleaned csv files to repo directory "K:/AP/TTM/Data/WMC Dashboard/BusState Cleaned"
+        None - saves cleaned csv files to repo directory "./busstate_cleaned"
     '''
     # Validate year and month inputs
     if not isinstance(year, str) or len(year) != 2 or not year.isdigit():
@@ -36,8 +39,9 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = os.g
     start = time.perf_counter()
     print(f"Starting busstate processing for {month}/{year}...")
 
-    data_dir = os.path.join(root_dir, "Data/APC Data") # contains zipped raw busstate txt files
-    repo_dir = os.path.join(current_dir, "BusState Cleaned") # temp file to store cleaned data - change in future if necessary
+    data_dir = Path(root_dir) / "Data" / "APC Data" # contains zipped raw busstate txt files
+    repo_root = Path(current_dir) if current_dir is not None else REPO_ROOT
+    repo_dir = repo_root / "busstate_cleaned"
 
     # Bustate naming convention is busstate0####DDMMYY.txt -> #### is unique 4 digit bus identifier
     # IF this ever changes in the future, change the regex pattern below to reflect new naming convention
@@ -46,9 +50,9 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = os.g
     # list comprehension to get list of all busstate files matching the year/month - will be zipped
     # takes about 30 seconds to run for 1 month of data
     busstates = [
-        os.path.normpath(os.path.join(data_dir, f)) 
-        for f in os.listdir(data_dir) 
-        if pattern.search(f)]
+        path
+        for path in data_dir.iterdir()
+        if pattern.search(path.name)]
 
     #print(busstates[:5]) 
     print(f"Found {len(busstates)} busstate files for {month}/{year} in '{data_dir}'")
@@ -192,7 +196,7 @@ def sort_and_save(df, output_dir, year):
     month_names = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"]
 
     # ensure output directory exists
-    os.makedirs(output_dir, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # ensure date column is datetime
     df['DATE'] = pd.to_datetime(df['DATE'])
@@ -210,7 +214,7 @@ def sort_and_save(df, output_dir, year):
         month_df = month_df.sort_values(by=['DATE', 'EVENT_TIME'])
 
         # filepath
-        filepath = os.path.normpath(os.path.join(output_dir, f"{year}-{month_names[month-1]}-busstate.csv"))
+        filepath = Path(output_dir) / f"{year}-{month_names[month-1]}-busstate.csv"
 
         # save 
         month_df.to_csv(filepath, index=False)
