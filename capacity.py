@@ -52,7 +52,7 @@ def calculate_capacity_dashboard_metrics(busstate_df):
     # add time col with timeframes on the report
     mc_loads['TIME'] = mc_loads.apply(
         lambda row: 
-            "5-6a" if row['HOUR'] <= 5 else
+            "5-6a" if row['HOUR'] == 5 else
             "6-7a" if row['HOUR'] == 6 else
             "7-8a" if row['HOUR'] == 7 else
             "8a-2p" if 8 <= row['HOUR'] < 14 else

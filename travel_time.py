@@ -15,6 +15,7 @@ def create_travel_time(busstate_df):
     # combine UH and Doan stops for travel time calculations
     busstate_df = combine.combine_uh_doan_stops(busstate_df)
     
+    # filter to only the relevant stops for travel time calculations
     time_order = ['5:30-7a', '7-10a', '10a-4p', '4-7p', '7p-12a', '12-5a']
     stop_labels = {403: 'CARMACK 2', 999: 'UH/DOAN'}
     valid_legs = ['CARMACK 2 - UH/DOAN', 'UH/DOAN - CARMACK 2']
@@ -31,7 +32,10 @@ def create_travel_time(busstate_df):
             return '4-7p'
         if hour_value >= 19:
             return '7p-12a'
-        return '12-5a'
+        if hour_value < 5:
+            return '12-5a'
+        else:
+            return np.nan
 
     mc_rt = busstate_df.loc[busstate_df['STOP_ID'].isin([403, 999])].copy()
     mc_rt = mc_rt.sort_values(['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL']).reset_index(drop=True)

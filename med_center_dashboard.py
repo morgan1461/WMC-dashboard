@@ -52,7 +52,7 @@ def med_center_dashboard(year, month):
     # process busstate data for medical center route
     mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev)
     # NOTE: this could be used for future internal dashboard use
-    mc_busstate_consolidated.to_csv(pathlib.Path(os.getcwd()) / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
+    #mc_busstate_consolidated.to_csv(pathlib.Path(os.getcwd()) / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
 
     print("Calculating headway, capacity, and travel time metrics for the dashboard...")
 

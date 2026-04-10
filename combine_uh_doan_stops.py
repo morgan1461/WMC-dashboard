@@ -116,10 +116,10 @@ def combine_uh_doan_stops(df, max_gap_minutes = 5):
 
     # return combined_df
     df = df.copy()
-    print("="*50)
-    print(f'Before combining: {len(df)}')
-    print(f'Unique stops before combining: {(df["STOP_ID"] == 401).sum()} UH, {(df["STOP_ID"] == 37).sum()} Doan')
-    print("="*50)
+    # print("="*50)
+    # print(f'Before combining: {len(df)}')
+    # print(f'Unique stops before combining: {(df["STOP_ID"] == 401).sum()} UH, {(df["STOP_ID"] == 37).sum()} Doan')
+    # print("="*50)
 
     doan_stop_id = 37
     uh_stop_id = 401
@@ -193,11 +193,11 @@ def combine_uh_doan_stops(df, max_gap_minutes = 5):
             i = j  # jump past cluster
 
     combined_df = pd.DataFrame(combined_rows).reset_index(drop=True)
-    print("="*50)
-    print(f'After combining: {len(combined_df)}')
-    print(f'Unique stops after combining: {(combined_df["STOP_ID"] == 999).sum()} UH/Doan, {(combined_df["STOP_ID"] == 401).sum()} UH, {(combined_df["STOP_ID"] == 37).sum()} Doan')
-    combined_df[combined_df['STOP_ID'] == 401][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('uh_stop_sample.csv', index=False)
-    combined_df[combined_df['STOP_ID'] == 37][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('doan_stop_sample.csv', index=False)
-    print("="*50)
+    # print("="*50)
+    # print(f'After combining: {len(combined_df)}')
+    # print(f'Unique stops after combining: {(combined_df["STOP_ID"] == 999).sum()} UH/Doan, {(combined_df["STOP_ID"] == 401).sum()} UH, {(combined_df["STOP_ID"] == 37).sum()} Doan')
+    # combined_df[combined_df['STOP_ID'] == 401][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('uh_stop_sample.csv', index=False)
+    # combined_df[combined_df['STOP_ID'] == 37][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('doan_stop_sample.csv', index=False)
+    # print("="*50)
 
     return combined_df
