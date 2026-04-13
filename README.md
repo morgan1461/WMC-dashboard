@@ -3,23 +3,34 @@
 ## Overview
 This project provides dashboard data for The Ohio State University Medical Center Shuttle. This code is adapted from legacy R code used in The Ohio State University Department of Transportation and Traffic Management.
 
-## Key Components
+### Author
+Clayton Morgan (Morgan.1461) Reporting and Analytics Analyst at The Ohio State University Department of Transportation and Traffic Management
+
+## Table of Contents
+
+- [File Structure](#file-structure)
+- 
 
 ---
 
 ### File Structure
 ```
 .
-├── stops
+├── stops/
 │   ├── pattern_stops.csv
 │   └── stop_inventory.csv
-├── busstate_cleaned
-│   └── 
-├── dashboard_data
-│   ├── 2025
-│   ├── 2026
-│   └── Med Ctr Expr Dashboard - Template
-├── modules
+├── busstate_cleaned/
+│   └── YYYY-MMM-busstate.csv
+├── dashboard_data/
+│   ├── 2025/
+│   ├── 2026/
+│   │   └── MMM/
+|   |       ├── 1-Headway-MMM-YYYY.csv
+|   |       ├── 2-Capacity-MMM-YYYY.csv
+|   |       ├── 3-TravelTime-MMM-YYYY.csv
+│   │       └── TotalBoardings-MMM-YYYY.txt
+│   └── Med Ctr Expr Dashboard - Template.xlsx
+├── modules/
 │   ├── busstate_processing.py
 │   ├── headway.py
 │   ├── capacity.py
@@ -31,7 +42,6 @@ This project provides dashboard data for The Ohio State University Medical Cente
 ├── .gitignore
 └── README.md
 ```
-
 
 ---
 
@@ -57,5 +67,30 @@ Descriptions of the modules:
 
 ---
 
-### Author
-Clayton Morgan (Morgan.1461) Reporting and Analytics Analyst at The Ohio State University Department of Transportation and Traffic Management
+## Usage
+
+Processing is done in two sequential steps in two separate notebooks.
+
+### Step 1 - Clean Raw BusState Files
+
+Open `busstate_processing_pipeline.ipynb` and set the target year and month in the following format:
+
+```python
+year = "25"
+month = "04"
+```
+
+This reads all matching zipped .txt raw BusState files from the APC Data directory, cleans, and processes them before saving a consolidated monthly .csv files to ./busstate_cleaned
+
+### Step 2 - Generate Dashboard Metrics
+
+Open `med_center_dashboard_metrics.ipynb` and set the target year and month in the following format:
+
+```python
+year = "25"
+month = "04"
+```
+
+This produces 3 .csv files and 1 .txt file in ./dashboard_data/YYYY/MMM/ that will be used to feed into the dashboard template.
+
+### Step 3 - 
