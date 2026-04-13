@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import combine_uh_doan_stops as combine
+from modules import combine_uh_doan_stops as combine
 
 def create_travel_time(busstate_df):
     '''
@@ -43,7 +43,7 @@ def create_travel_time(busstate_df):
     same_trip = (
         (mc_rt['BUS_ID'] == mc_rt['BUS_ID'].shift(1))
         & (mc_rt['DATE'] == mc_rt['DATE'].shift(1))
-        & (mc_rt['RUN_ID'] == mc_rt['RUN_ID'].shift(1))
+        #& (mc_rt['RUN_ID'] == mc_rt['RUN_ID'].shift(1)) # RUN_ID
     )
 
     mc_rt['RUN_TIME'] = np.where(

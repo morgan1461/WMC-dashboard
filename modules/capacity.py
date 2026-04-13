@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import combine_uh_doan_stops as combine
+from modules import combine_uh_doan_stops as combine
 
 def create_capacity(busstate_consolidated):
     '''
@@ -70,7 +70,7 @@ def calculate_capacity_dashboard_metrics(busstate_df):
         "66+ Passengers" if load > 65 else None
     )
 
-    print(mc_loads[mc_loads['SIZE'] == "66+ Passengers"]) 
+    #print(mc_loads[mc_loads['SIZE'] == "66+ Passengers"]) 
 
     # create summary table for load size by time of day
     time_order = ['5-6a', '6-7a', '7-8a', '8a-2p', '2-8p', '8-10p', '10p-12a']

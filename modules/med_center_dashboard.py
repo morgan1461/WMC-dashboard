@@ -2,9 +2,9 @@ import time
 import pandas as pd
 import numpy as np
 import pathlib
-import headway
-import capacity
-import travel_time
+from modules import headway
+from modules import capacity
+from modules import travel_time
 
 MODULE_DIR = pathlib.Path(__file__).resolve().parent
 REPO_ROOT = MODULE_DIR.parent
@@ -84,6 +84,10 @@ def med_center_dashboard(year, month):
 
     # Finally, print out the total boardings for the month
     total_boardings = mc_busstate_consolidated['BOARDINGS'].sum()
+
+    # print passenger count to .txt
+    with open(metric_dir / f'TotalBoardings-{month_abbrev}-{full_year}.txt', 'w') as f:
+        f.write(f"Total boardings of {month_abbrev} {full_year}: {total_boardings} passengers\n")
     print(f"Total boardings of {month_abbrev} {full_year}: {total_boardings} passengers")
 
 def build_stops_df():
@@ -200,7 +204,8 @@ def process_mc_busstate(year, month):
     count = (
         (filtered_busstate_df['STOP_ID'] != filtered_busstate_df['STOP_ID'].shift(1)) |
         (filtered_busstate_df['BUS_ID'] != filtered_busstate_df['BUS_ID'].shift(1)) |
-        ((filtered_busstate_df['EVENT_TIME'] - filtered_busstate_df['EVENT_TIME'].shift(1)).dt.total_seconds() > 60)
+        ((filtered_busstate_df['EVENT_TIME'] - filtered_busstate_df['EVENT_TIME'].shift(1)).dt.total_seconds() >= 3600) 
+        # this should create a new event if more than an hour has passed since the last event
     )
 
     # take cumsum of count to assign 
