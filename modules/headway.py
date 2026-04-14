@@ -32,6 +32,9 @@ def calculate_headway(busstate_df, stop_id):
 
     stop_hw = stop_hw.sort_values(['DATE', 'ARRIVAL'])
 
+    # filter out rows iwth missing arrival times
+    stop_hw = stop_hw[stop_hw['ARRIVAL'].notna()]
+
     # stop_hw['ARRIVAL'].isna().sum() # zero NA
     stop_hw['HEADWAY'] = stop_hw['ARRIVAL'] - stop_hw['ARRIVAL'].shift(1) # headway in minutes
 
@@ -98,45 +101,96 @@ def calculate_headway_dashboard_metrics(combined_headway_df):
         "8-10p": 10,
         "10p-12a": 5
     }
-    # add in target headways to combined_headway_df based on hour of arrival
-    combined_headway_df['TARGET'] = combined_headway_df['HOUR'].apply(
-        lambda hour: TARGET_HEADWAYS["5-6a"] if hour == 5 else (
-            TARGET_HEADWAYS["6-7a"] if hour == 6 else (
-                TARGET_HEADWAYS["7-8a"] if hour == 7 else (
-                    TARGET_HEADWAYS["8a-2p"] if 8 <= hour < 14 else (
-                        TARGET_HEADWAYS["2-8p"] if 14 <= hour < 20 else (
-                            TARGET_HEADWAYS["8-10p"] if 20 <= hour < 22 else (
-                                TARGET_HEADWAYS["10p-12a"] if 22 <= hour or hour == 0 else np.nan
-                            )
-                        )
-                    )
-                )
-            )
-        )
+
+    # convert arrival to minutes since midnight - should match R logic instead of being based on datetime objects.
+    combined_headway_df['ARRIVAL_MINUTE'] = (
+        combined_headway_df['ARRIVAL'].dt.hour * 60 +
+        combined_headway_df['ARRIVAL'].dt.minute
     )
+
+    ##########################################
+    # # The following code block was the inital translation from R to python but has been edited
+    # # this should now replicate the logic for cutting out 10 minutes on either side of a time interval to get a more accurate picture of bus performance in the specified timeframe
+    # # keeping this code block for reference
+    # # add in target headways to combined_headway_df based on hour of arrival
+    # combined_headway_df['TARGET'] = combined_headway_df['HOUR'].apply(
+    #     lambda hour: TARGET_HEADWAYS["5-6a"] if hour == 5 else (
+    #         TARGET_HEADWAYS["6-7a"] if hour == 6 else (
+    #             TARGET_HEADWAYS["7-8a"] if hour == 7 else (
+    #                 TARGET_HEADWAYS["8a-2p"] if 8 <= hour < 14 else (
+    #                     TARGET_HEADWAYS["2-8p"] if 14 <= hour < 20 else (
+    #                         TARGET_HEADWAYS["8-10p"] if 20 <= hour < 22 else (
+    #                             TARGET_HEADWAYS["10p-12a"] if 22 <= hour or hour == 0 else np.nan
+    #                         )
+    #                     )
+    #                 )
+    #             )
+    #         )
+    #     )
+    # )
+    # # create min of headway col to compare to target
+    # combined_headway_df['HEADWAY_MIN'] = combined_headway_df['HEADWAY'].dt.total_seconds() / 60
+
+    # # create met col for met headway target
+    # combined_headway_df['MET'] = ((combined_headway_df['TARGET'].notna()) & (combined_headway_df['HEADWAY_MIN'] <= combined_headway_df['TARGET'])).astype(int)
+    # # 1 if met, 0 if not met, only calculate if target is not NA
+
+    # # create target hour where each hour is broken into the target timeframes
+    # combined_headway_df['TARGET_HOUR'] = combined_headway_df['HOUR'].apply(
+    #     lambda hour: "5-6a" if hour == 5 else (
+    #         "6-7a" if hour == 6 else (
+    #             "7-8a" if hour == 7 else (
+    #                 "8a-2p" if 8 <= hour < 14 else (
+    #                     "2-8p" if 14 <= hour < 20 else (
+    #                         "8-10p" if 20 <= hour < 22 else (
+    #                             "10p-12a" if 22 <= hour or hour == 0 else np.nan
+    #                         )
+    #                     )
+    #                 )
+    #             )
+    #         )
+    #     )
+    # )
+
+    # replicate R time and target logic using arrival minutes (minutes since midnight) 
+    # Contains 'wiggle' room to account for some adjustment
+    def assign_time_and_target(row):
+        m = row['ARRIVAL_MINUTE']
+        
+        if row['HOUR'] == 5:
+            return "5-6a", 10
+        elif 370 <= m < 411:
+            return "6-7a", 3
+        elif 430 <= m < 471:
+            return "7-8a", 3
+        elif 490 <= m < 831:
+            return "8a-2p", 10
+        elif 850 <= m < 1190:
+            return "2-8p", 5
+        elif 1210 <= m < 1310:
+            return "8-10p", 10
+        elif 1330 <= m < 1431:
+            return "10p-12a", 5
+        else:
+            return np.nan, np.nan
+
+    # apply function to create both columns at once
+    combined_headway_df[['TARGET_HOUR', 'TARGET']] = combined_headway_df.apply(
+        assign_time_and_target, axis=1, result_type='expand'
+    )
+
+    # filter out any time that is not within the target time windows
+    combined_headway_df = combined_headway_df[combined_headway_df['TARGET_HOUR'].notna()]
+
     # create min of headway col to compare to target
-    combined_headway_df['HEADWAY_MIN'] = combined_headway_df['HEADWAY'].dt.total_seconds() / 60
-
-    # create met col for met headway target
-    combined_headway_df['MET'] = ((combined_headway_df['TARGET'].notna()) & (combined_headway_df['HEADWAY_MIN'] <= combined_headway_df['TARGET'])).astype(int)
-    # 1 if met, 0 if not met, only calculate if target is not NA
-
-    # create target hour where each hour is broken into the target timeframes
-    combined_headway_df['TARGET_HOUR'] = combined_headway_df['HOUR'].apply(
-        lambda hour: "5-6a" if hour == 5 else (
-            "6-7a" if hour == 6 else (
-                "7-8a" if hour == 7 else (
-                    "8a-2p" if 8 <= hour < 14 else (
-                        "2-8p" if 14 <= hour < 20 else (
-                            "8-10p" if 20 <= hour < 22 else (
-                                "10p-12a" if 22 <= hour or hour == 0 else np.nan
-                            )
-                        )
-                    )
-                )
-            )
-        )
+    combined_headway_df['HEADWAY_MIN'] = (
+        combined_headway_df['HEADWAY'].dt.total_seconds() / 60
     )
+
+    # 1 if met, 0 if not met
+    combined_headway_df['MET'] = (
+        combined_headway_df['HEADWAY_MIN'] <= combined_headway_df['TARGET']
+    ).astype(int)
 
     # combined_hw['HEADWAY_MIN'].head(20)
     # sort by chronological order
