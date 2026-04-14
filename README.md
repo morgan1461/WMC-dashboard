@@ -1,7 +1,7 @@
 # WMC Dashboard
 
 ## Overview
-This project provides dashboard data for The Ohio State University Medical Center Shuttle. This code is adapted from legacy R code used in The Ohio State University Department of Transportation and Traffic Management.
+This project provides dashboard data for The Ohio State University Medical Center Shuttle. This report is used for external reporting to the Ohio State University Department of Performance Excellence and the Medical Center. This code is adapted from legacy R code used in The Ohio State University Department of Transportation and Traffic Management.
 
 ### Author
 Clayton Morgan (Morgan.1461) Reporting and Analytics Analyst at The Ohio State University Department of Transportation and Traffic Management
@@ -93,4 +93,6 @@ month = "04"
 
 This produces 3 .csv files and 1 .txt file in ./dashboard_data/YYYY/MMM/ that will be used to feed into the dashboard template.
 
-### Step 3 - 
+### Step 3 - Fill In Dashboard Template
+
+The following month's template will be copied and used until December of each year.  
