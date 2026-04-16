@@ -1,4 +1,4 @@
-# WMC Dashboard
+# Monthyl Med Center Express Shuttle Dashboard
 
 ## Overview
 This project generates montly dashboard metrics for The Ohio State University Wexner Medical Center Shuttle. This report is used for external reporting to the Ohio State University Department of Performance Excellence and the Medical Center. It processes raw Automatic Passenger Counter (APC) BusState files and produces three summary tables; headway, capacity, and travel time, as well as a total ridership number.
