@@ -153,7 +153,7 @@ def which_stop(lat, lon, stops_df = build_stops_df(), route = "MC", max_distance
     return int(route_stops.loc[mask, 'STOP_ID'].iloc[0])
 
 # NOTE: Will need to update function with year and month functionality.
-def process_mc_busstate(year, month):
+def process_mc_busstate(year, month, current_dir = REPO_ROOT, repo_dir = REPO_ROOT):
     """
     Process the busstate data for the medical center route. This step is the most intensive and will take a couple minutes to run.
     NOTE: This will ONLY work for the medical center route.
@@ -161,12 +161,14 @@ def process_mc_busstate(year, month):
     Args:
         year (int): The 4 digit year of the busstate data.
         month (str): The 3 letter month abbreviation of the busstate data.
+        current_dir (str): The directory where the raw busstate data is stored. Default is the repo root, but can be updated to point to a different directory as needed.
+        repo_dir (str): The directory where the processed busstate data will be saved. Default
     Returns:
         DataFrame: A pandas DataFrame containing the processed busstate data for the medical center route.
     """
 
-    busstate_dir = REPO_ROOT / "busstate_cleaned"
-    busstate_path = busstate_dir / f"{year}-{month}-busstate.csv"
+    current_dir = REPO_ROOT / current_dir
+    busstate_path = current_dir / f"{year}-{month}-busstate.csv"
     busstate_df = pd.read_csv(busstate_path) # Now cleaned busstate data read in
 
     # Process the busstate data for medical center routes
