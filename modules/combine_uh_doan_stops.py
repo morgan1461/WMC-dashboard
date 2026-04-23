@@ -1,203 +1,139 @@
 import pandas as pd
-import numpy as np
 
-def combine_uh_doan_stops(df, max_gap_minutes = 5):
-    # combine UH and Doan stops for capacity
-    # Carmack -> UH is inbound, Doan -> Carmack is outbound
-    # Treating UH and Doan as one stop.
+
+"""
+Notes from the 4/23/2026 notebook rebuild
+-----------------------------------------
+- The previous cluster-based combine logic was suspected to be causing unreliable
+  downstream capacity and travel-time results.
+- The notebook investigation rebuilt the pairing from scratch and narrowed the
+  rule to a strict adjacent stop merge.
+- The intended output should preserve the original dataframe schema while
+  replacing valid University Hospital -> Doan pairs with one artificial stop
+  record using STOP_ID 999.
+- A valid pair is defined as:
+    * current stop is 401 (UH)
+    * next stop is 37 (Doan)
+    * same BUS_ID, DATE, and RUN_ID when those fields are present
+    * next stop occurs within max_gap_minutes of the UH stop
+- Unmatched 37/401 rows are left in place by design. The notebook showed that
+  some rows are non-adjacent or otherwise fail the pairing rule.
+- An outbound-only filter was explored in the notebook, but the production
+  dataframe passed into this module does not always include BOARDING_DIRECTIONS,
+  so the module now operates directly on the input schema.
+"""
+
+
+UH_STOP_ID = 401
+DOAN_STOP_ID = 37
+COMBINED_STOP_ID = 999
+
+
+def _coerce_service_timestamp(date_series, arrival_series):
+    """Build a service timestamp from DATE and ARRIVAL without changing caller schema."""
+    date_str = date_series.astype(str)
+    arrival_str = arrival_series.astype(str).str.split().str[-1]
+
+    return pd.to_datetime(
+        date_str + " " + arrival_str,
+        format="%Y-%m-%d %H:%M:%S",
+        errors="coerce",
+    )
+
+
+def _merge_adjacent_hospital_pair(current, next_row, combined_stop_id):
+    """Create a merged 999 row while preserving the input row shape."""
+    merged = current.copy()
+    merged["STOP_ID"] = combined_stop_id
+
+    if "BOARDINGS" in merged.index:
+        merged["BOARDINGS"] = current["BOARDINGS"] + next_row["BOARDINGS"]
+    if "ALIGHTINGS" in merged.index:
+        merged["ALIGHTINGS"] = current["ALIGHTINGS"] + next_row["ALIGHTINGS"]
+    if "LOAD" in merged.index:
+        merged["LOAD"] = max(current["LOAD"], next_row["LOAD"])
+    if "DEPARTURE" in merged.index:
+        merged["DEPARTURE"] = next_row["DEPARTURE"]
+
+    if {"ARRIVAL", "DEPARTURE", "DWELL"}.issubset(merged.index):
+        arrival_ts = pd.to_datetime(str(merged["ARRIVAL"]), errors="coerce")
+        departure_ts = pd.to_datetime(str(merged["DEPARTURE"]), errors="coerce")
+        merged["DWELL"] = (
+            departure_ts - arrival_ts
+            if pd.notna(arrival_ts) and pd.notna(departure_ts)
+            else pd.NaT
+        )
+
+    if "ARRIVAL" in merged.index and "HOUR" in merged.index:
+        arrival_ts = pd.to_datetime(str(merged["ARRIVAL"]), errors="coerce")
+        if pd.notna(arrival_ts):
+            merged["HOUR"] = int(arrival_ts.hour)
+
+    if "ARRIVAL" in merged.index and "MINUTE" in merged.index:
+        arrival_ts = pd.to_datetime(str(merged["ARRIVAL"]), errors="coerce")
+        if pd.notna(arrival_ts):
+            merged["MINUTE"] = int(arrival_ts.minute)
+
+    return merged
+
+
+def combine_uh_doan_stops(df, max_gap_minutes=5, combined_stop_id=COMBINED_STOP_ID):
     """
-    Combine University Hospital and Doan stops into a single stop in the stop inventory for metrics.
+    Combine adjacent University Hospital and Doan rows into one synthetic stop.
+
+    This is a strict adjacent-pair merge ported from the investigation notebook.
+    The returned dataframe preserves the caller's original columns and ordering
+    semantics as closely as possible, except that valid 401 -> 37 pairs are
+    replaced by one row whose STOP_ID is 999.
 
     Args:
-        df (DataFrame): The consolidated bus state DataFrame containing stop-level data.
-        max_gap_minutes (int, optional): The maximum time gap in minutes between the UH and Doan stops to consider them as a pair. Defaults to 5 minutes.
+        df (pd.DataFrame): Consolidated stop-level dataframe.
+        max_gap_minutes (int, optional): Maximum allowed gap between the UH row
+            and the following Doan row. Defaults to 5.
+        combined_stop_id (int, optional): Synthetic stop id used for merged
+            hospital pairs. Defaults to 999.
 
     Returns:
-        DataFrame: A DataFrame with University Hospital and Doan stops combined into a single stop with ID of 999.
+        pd.DataFrame: Copy of the input data with valid 401 -> 37 pairs merged.
     """
-    # df = df.copy()
-    # print("="*50)
-    # print(f'Before combining: {len(df)}')
-    # print(f'Unique stops before combining: {(df["STOP_ID"] == 401).sum()} UH, {(df["STOP_ID"] == 37).sum()} Doan')
-    # print("="*50)
+    if df.empty:
+        return df.copy()
 
-    # # will keep the original stop column for UH and Doan for reference, but assign a new combined stop - potential for debugging purposes
-    # # Assigning the number 999 for combined stop - no actual meaning for this and an unused stop number
-    # df['STOP_ORIGINAL'] = df['STOP_ID'] # keep original stop id for reference
-
-    # doan_stop_id = 37
-    # uh_stop_id = 401
- 
-    # combined_id = 999 # completely arbitrary 
-
-    # max_gap = pd.Timedelta(minutes=max_gap_minutes)
-
-    # sort_cols = ['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE']
-    # df = df.sort_values(sort_cols).reset_index(drop=True)
-
-    # combined_rows = []
-    # row_index = 0
-
-    # while row_index < len(df):
-    #     current = df.iloc[row_index]
-
-    #     if row_index < len(df) - 1:
-    #         next_row = df.iloc[row_index + 1]
-
-    #         # check if this is a UH->Doan pair within max_gap
-    #         is_candidate_pair = (
-    #             current['STOP_ID'] == uh_stop_id
-    #             and next_row['STOP_ID'] == doan_stop_id
-    #             and current['BUS_ID'] == next_row['BUS_ID']
-    #             and current['DATE'] == next_row['DATE']
-    #             and current['RUN_ID'] == next_row['RUN_ID']
-    #             and pd.Timedelta(0) <= (next_row['ARRIVAL'] - current['DEPARTURE']) <= max_gap
-    #         )
-
-    #         if is_candidate_pair:
-    #             merged = current.copy()
-    #             merged['STOP_ID'] = combined_id
-    #             merged['STOP_ORIGINAL'] = f"{uh_stop_id}_{doan_stop_id}"
-    #             merged['BOARDINGS'] = current['BOARDINGS'] + next_row['BOARDINGS']
-    #             merged['ALIGHTINGS'] = current['ALIGHTINGS'] + next_row['ALIGHTINGS']
-    #             merged['LOAD'] = max(current['LOAD'], next_row['LOAD'])
-    #             merged['DEPARTURE'] = next_row['DEPARTURE']
-    #             merged['DWELL'] = merged['DEPARTURE'] - merged['ARRIVAL']
-    #             merged['HOUR'] = merged['ARRIVAL'].hour
-    #             merged['MINUTE'] = merged['ARRIVAL'].minute
-
-    #             combined_rows.append(merged)
-    #             row_index += 2  # skip next row because it was merged
-    #             continue
-
-    #     # if not merged, just add current
-    #     combined_rows.append(current.copy())
-    #     row_index += 1
-
-    # combined_df = pd.DataFrame(combined_rows).reset_index(drop=True)
-
-    # print("="*50)
-    # print(f'After combining: {len(combined_df)}')
-    # print(f'Unique stops after combining: {(combined_df["STOP_ID"] == 999).sum()} UH/Doan, {(combined_df["STOP_ID"] == 401).sum()} UH, {(combined_df["STOP_ID"] == 37).sum()} Doan')
-    # combined_df[combined_df['STOP_ID'] == 401][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('uh_stop_sample.csv', index=False)
-    # combined_df[combined_df['STOP_ID'] == 37][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('doan_stop_sample.csv', index=False)
-    # print("="*50)
-    
-
-    # # debugging 
-    # # ---------------------------
-    # # Debug: show unmerged UH / Doan with context
-    # # ---------------------------
-    # debug_indices = combined_df[
-    #     (combined_df['STOP_ID'].isin([uh_stop_id, doan_stop_id]))
-    # ].index
-
-    # print("\n" + "="*80)
-    # print("DEBUG: Unmerged UH / Doan Stops with Context")
-    # print("="*80)
-
-    # window = 5
-
-    # for idx in debug_indices[:20]:  # limit to first 20 cases to avoid huge output
-    #     start = max(idx - window, 0)
-    #     end = min(idx + window + 1, len(combined_df))
-
-    #     print("\n" + "-"*60)
-    #     print(f"Context around index {idx} (STOP_ID={combined_df.loc[idx, 'STOP_ID']})")
-    #     print("-"*60)
-
-    #     context_df = combined_df.iloc[start:end][[
-    #         'BUS_ID', 'DATE', 'RUN_ID', 'STOP_ID',
-    #         'ARRIVAL', 'DEPARTURE',
-    #         'BOARDINGS', 'ALIGHTINGS', 'LOAD'
-    #     ]]
-
-    #     print(context_df.to_string(index=True))
-
-    # return combined_df
-    df = df.copy()
-    # print("="*50)
-    # print(f'Before combining: {len(df)}')
-    # print(f'Unique stops before combining: {(df["STOP_ID"] == 401).sum()} UH, {(df["STOP_ID"] == 37).sum()} Doan')
-    # print("="*50)
-
-    doan_stop_id = 37
-    uh_stop_id = 401
-    combined_id = 999
-
-    max_gap = pd.Timedelta(minutes=max_gap_minutes)
-
-    df['STOP_ORIGINAL'] = df['STOP_ID']
-
-    sort_cols = ['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL']
-    df = df.sort_values(sort_cols).reset_index(drop=True)
+    work = df.copy()
+    work["_PAIR_TIME"] = _coerce_service_timestamp(work["DATE"], work["ARRIVAL"])
+    work = work.sort_values(by=["RUN_ID", "_PAIR_TIME"]).reset_index(drop=True)
 
     combined_rows = []
+    max_gap = pd.Timedelta(minutes=max_gap_minutes)
+    index = 0
 
-    group_cols = ['BUS_ID', 'DATE', 'RUN_ID']
+    while index < len(work):
+        current = work.iloc[index]
 
-    for _, group in df.groupby(group_cols):
-        group = group.sort_values('ARRIVAL').reset_index(drop=True)
+        if index + 1 >= len(work):
+            combined_rows.append(current.drop(labels="_PAIR_TIME").to_dict())
+            break
 
-        i = 0
-        while i < len(group):
+        next_row = work.iloc[index + 1]
 
-            current = group.iloc[i]
+        same_run = current["RUN_ID"] == next_row["RUN_ID"]
+        same_date = current["DATE"] == next_row["DATE"]
+        same_bus = (
+            current["BUS_ID"] == next_row["BUS_ID"]
+            if "BUS_ID" in work.columns
+            else True
+        )
+        in_order = current["STOP_ID"] == UH_STOP_ID and next_row["STOP_ID"] == DOAN_STOP_ID
+        gap = next_row["_PAIR_TIME"] - current["_PAIR_TIME"]
+        within_gap = pd.notna(gap) and pd.Timedelta(0) <= gap <= max_gap
 
-            # Only start clustering if it's UH or Doan
-            if current['STOP_ID'] not in [uh_stop_id, doan_stop_id]:
-                combined_rows.append(current.copy())
-                i += 1
-                continue
+        if in_order and same_run and same_date and same_bus and within_gap:
+            merged = _merge_adjacent_hospital_pair(current, next_row, combined_stop_id)
+            combined_rows.append(merged.drop(labels="_PAIR_TIME").to_dict())
+            index += 2
+            continue
 
-            # Start cluster
-            cluster = [current]
-            j = i + 1
+        combined_rows.append(current.drop(labels="_PAIR_TIME").to_dict())
+        index += 1
 
-            while j < len(group):
-                next_row = group.iloc[j]
-
-                time_gap = next_row['ARRIVAL'] - cluster[-1]['DEPARTURE']
-
-                if (
-                    next_row['STOP_ID'] in [uh_stop_id, doan_stop_id]
-                    and pd.Timedelta(0) <= time_gap <= max_gap
-                ):
-                    cluster.append(next_row)
-                    j += 1
-                else:
-                    break
-
-            # If cluster has more than 1 row → merge
-            if len(cluster) > 1:
-                merged = cluster[0].copy()
-
-                merged['STOP_ID'] = combined_id
-                merged['STOP_ORIGINAL'] = "_".join(str(r['STOP_ID']) for r in cluster)
-
-                merged['BOARDINGS'] = sum(r['BOARDINGS'] for r in cluster)
-                merged['ALIGHTINGS'] = sum(r['ALIGHTINGS'] for r in cluster)
-                merged['LOAD'] = max(r['LOAD'] for r in cluster)
-
-                merged['DEPARTURE'] = cluster[-1]['DEPARTURE']
-                merged['DWELL'] = merged['DEPARTURE'] - merged['ARRIVAL']
-
-                merged['HOUR'] = merged['ARRIVAL'].hour
-                merged['MINUTE'] = merged['ARRIVAL'].minute
-
-                combined_rows.append(merged)
-
-            else:
-                combined_rows.append(current.copy())
-
-            i = j  # jump past cluster
-
-    combined_df = pd.DataFrame(combined_rows).reset_index(drop=True)
-    # print("="*50)
-    # print(f'After combining: {len(combined_df)}')
-    # print(f'Unique stops after combining: {(combined_df["STOP_ID"] == 999).sum()} UH/Doan, {(combined_df["STOP_ID"] == 401).sum()} UH, {(combined_df["STOP_ID"] == 37).sum()} Doan')
-    # combined_df[combined_df['STOP_ID'] == 401][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('uh_stop_sample.csv', index=False)
-    # combined_df[combined_df['STOP_ID'] == 37][['BUS_ID', 'DATE', 'RUN_ID', 'ARRIVAL', 'DEPARTURE', 'BOARDINGS', 'ALIGHTINGS', 'LOAD', 'DWELL']].to_csv('doan_stop_sample.csv', index=False)
-    # print("="*50)
-
-    return combined_df
+    return pd.DataFrame(combined_rows, columns=df.columns)
