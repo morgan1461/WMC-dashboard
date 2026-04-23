@@ -53,6 +53,13 @@ def med_center_dashboard(year, month):
 
     # process busstate data for medical center route
     mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev)
+    
+    ###########################################################
+    # NOTE: This is for testing purposes of the combine stops function
+    mc_busstate_consolidated.to_csv(REPO_ROOT / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
+    return
+    ###########################################################
+    
     # NOTE: this could be used for future internal dashboard use
     #mc_busstate_consolidated.to_csv(REPO_ROOT / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
 
@@ -167,7 +174,7 @@ def process_mc_busstate(year, month, current_dir = REPO_ROOT, repo_dir = REPO_RO
         DataFrame: A pandas DataFrame containing the processed busstate data for the medical center route.
     """
 
-    current_dir = REPO_ROOT / current_dir
+    current_dir = REPO_ROOT / current_dir / "busstate_cleaned"
     busstate_path = current_dir / f"{year}-{month}-busstate.csv"
     busstate_df = pd.read_csv(busstate_path) # Now cleaned busstate data read in
 
@@ -215,8 +222,8 @@ def process_mc_busstate(year, month, current_dir = REPO_ROOT, repo_dir = REPO_RO
 
     # consolidate df
     consolidated_busstate_df = filtered_busstate_df.groupby(['BUS_ID', 'DATE', 'COUNT', 'STOP_ID', 'RUN_ID'], as_index = False).agg(
-        BOARDINGS = ('BOARDINGS', 'sum'), # this WAS max
-        ALIGHTINGS = ('ALIGHTINGS', 'sum'), # this WAS max
+        BOARDINGS = ('BOARDINGS', 'max'), # this WAS max
+        ALIGHTINGS = ('ALIGHTINGS', 'max'), # this WAS max
         LOAD = ('PASSENGER_LOAD', 'max'),
         EARLY_EVENT=("EVENT_TIME", "min"),
         LATE_EVENT=("EVENT_TIME", "max"),
