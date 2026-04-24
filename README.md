@@ -110,6 +110,8 @@ Main controller module. Filters cleaned busstate data to MC runs (`RUN_ID` 1500�
 
 The `which_stop` module is designed to be reused in future projects or workflows. However, this does NOT account for the curvature of the earth in the distance calculations, and may need to be considered in future use cases.
 
+This module's function will save a .txt file containing the sum of all boardings of the consolidated busstate med center dataframe.
+
 ### `headway.py`
 Calculates the headway (time between bus arrivals) at Carmack 2 , Carmack 3 , University Hospital , and Doan Hall. Computes percent of headways meeting target thresholds and 50th/75th/90th percentile headway times by various time of day windows.
 
@@ -118,6 +120,7 @@ Calculates the headway (time between bus arrivals) at Carmack 2 , Carmack 3 , Un
 ### `capacity.py`
 Filters to the combined UH/Doan stop and categorizes each loop by passenger load size in the following categories: 0–30, 31–50, 51–65, 66+. Produces a summary of loop counts by load category and time of day window.
 
+- Capacity is calculated by taking the maximum total boardings or alightings across both the Unviersity Hospital and Doan Hall stops in a single trip.
 - A bus with over 65 passengers is considered overcapacity.
 
 ### `travel_time.py`

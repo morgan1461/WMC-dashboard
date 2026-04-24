@@ -55,9 +55,9 @@ def med_center_dashboard(year, month):
     mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev)
     
     ###########################################################
-    # NOTE: This is for testing purposes of the combine stops function
-    mc_busstate_consolidated.to_csv(REPO_ROOT / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
-    return
+    # # NOTE: This is for testing purposes of the combine stops function
+    # mc_busstate_consolidated.to_csv(REPO_ROOT / f"mc_busstate_consolidated_{month_abbrev}_{full_year}.csv", index = False) # save the consolidated busstate data for reference - this is a large file but could be useful for future internal dashboard use and debugging
+    # return
     ###########################################################
     
     # NOTE: this could be used for future internal dashboard use
