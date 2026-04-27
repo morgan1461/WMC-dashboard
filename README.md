@@ -133,6 +133,8 @@ Calculates run time in minutes for each leg between Carmack 2 and the combined U
 ### `combine_uh_doan_stops.py`
 Helper module. Merges consecutive University Hospital and Doan Hall stops within a configurable time gap (default 5 minutes) into a single synthetic stop with ID 999. Used by both `capacity.py` and `travel_time.py`.
 
+- NOTE: Cases where a run has logged a stop at University Hospital and not Doan or vise-versa, will result in this stop being unaccounted for. These trips are likely primarily due to busses going out of service. In testing this results in approximately 0.3% of the total data and will not impact the overall results. 
+
 ---
 
 ## Data Sources

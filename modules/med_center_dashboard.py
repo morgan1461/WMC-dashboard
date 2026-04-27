@@ -174,7 +174,7 @@ def process_mc_busstate(year, month, current_dir = REPO_ROOT, repo_dir = REPO_RO
         DataFrame: A pandas DataFrame containing the processed busstate data for the medical center route.
     """
 
-    current_dir = REPO_ROOT / current_dir / "busstate_cleaned"
+    current_dir = REPO_ROOT / "busstate_cleaned"
     busstate_path = current_dir / f"{year}-{month}-busstate.csv"
     busstate_df = pd.read_csv(busstate_path) # Now cleaned busstate data read in
 
