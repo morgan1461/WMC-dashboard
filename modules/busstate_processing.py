@@ -4,11 +4,13 @@ import zipfile
 import time
 import os
 import re
+from datetime import date, datetime, timedelta
+from calendar import monthrange
 
 MODULE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = MODULE_DIR.parent
 
-def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None):
+def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None, overlap_days = 2):
     '''
     Process all busstate zip files in the data directory and save cleaned csv files to the repo directory
 
@@ -19,6 +21,8 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None
             NOTE: MUST BE IN 2 DIGIT FORMAT
         root_dir (str): root directory path - SHOULD ONLY NEED CHANGED IF ON UNIX SYSTEM
         current_dir (str | Path | None): optional repository root override
+        overlap_days (int): number of days before/after month boundary to include
+            when selecting files by filename date. Helps capture cross-month spillover.
 
     Returns:
         None - saves cleaned csv files to repo directory "./busstate_cleaned"
@@ -32,6 +36,10 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None
     
     if not (1 <= int(month) <= 12):
         raise ValueError("Month must be between 01 and 12")
+
+    if not isinstance(overlap_days, int) or overlap_days < 0:
+        raise ValueError("overlap_days must be a non-negative integer")
+
     # convert year to full year format for later use in filtering and saving
     full_year = int("20" + year)
 
@@ -43,19 +51,27 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None
     repo_root = Path(current_dir) if current_dir is not None else REPO_ROOT
     repo_dir = repo_root / "busstate_cleaned"
 
-    # Bustate naming convention is busstate0####DDMMYY.txt -> #### is unique 4 digit bus identifier
-    # IF this ever changes in the future, change the regex pattern below to reflect new naming convention
-    pattern = re.compile(rf"{year}{month}\d{{2}}\.txt\.zip$") # ending of files is YYMMDD.txt.zip
+    # Select files by a date window around the target month so spillover data is included.
+    month_num = int(month)
+    month_start = date(full_year, month_num, 1)
+    month_end = date(full_year, month_num, monthrange(full_year, month_num)[1])
+    selection_start = month_start - timedelta(days=overlap_days)
+    selection_end = month_end + timedelta(days=overlap_days)
 
-    # list comprehension to get list of all busstate files matching the year/month - will be zipped
+    # list comprehension to get all busstate files within selection window - will be zipped
     # takes about 30 seconds to run for 1 month of data
     busstates = [
         path
         for path in data_dir.iterdir()
-        if pattern.search(path.name)]
+        if (file_date := extract_busstate_file_date(path.name)) is not None
+        and selection_start <= file_date <= selection_end
+    ]
 
     #print(busstates[:5]) 
-    print(f"Found {len(busstates)} busstate files for {month}/{year} in '{data_dir}'")
+    print(
+        f"Found {len(busstates)} busstate files for {month}/{year} "
+        f"(including +/- {overlap_days} day overlap) in '{data_dir}'"
+    )
 
     # empty dataframe to hold busstate data
     df = pd.DataFrame()
@@ -79,6 +95,22 @@ def busstate_processing(year, month, root_dir = "K:/AP/TTM/", current_dir = None
 
     end = time.perf_counter()
     print(f"Finished processing busstate data for {month}/{year} in {end - start:.2f} seconds. Cleaned files saved to '{repo_dir}'")
+
+def extract_busstate_file_date(filename):
+    """
+    Parse YYMMDD date from busstate filename suffix like '*250401.txt.zip'.
+
+    Returns:
+        datetime.date | None: parsed date or None if filename does not match.
+    """
+    match = re.search(r"(\d{6})\.txt\.zip$", filename)
+    if not match:
+        return None
+
+    try:
+        return datetime.strptime(match.group(1), "%y%m%d").date()
+    except ValueError:
+        return None
 
 def unzip_busstate_to_df(zip_path):
     '''
