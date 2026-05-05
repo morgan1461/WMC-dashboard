@@ -217,7 +217,7 @@ def process_busstate(df):
 # Replicate the 'Sort and save function' save it into the repo directory
 def sort_and_save(df, output_dir, year):
     """
-    Save monthly busstate files - this will act weirdly if there is already existing data - will revisit later.
+    Save monthly busstate files by merging with existing outputs and de-duplicating.
 
     Parameters:
         df (pd.DataFrame): cleaned busstate dataframe with 'DATE' column
@@ -242,13 +242,27 @@ def sort_and_save(df, output_dir, year):
             print(f"No data for month {month_names[month-1]} {year}")
             continue
 
-        # sort by date and event time
-        month_df = month_df.sort_values(by=['DATE', 'EVENT_TIME'])
-
         # filepath
         filepath = Path(output_dir) / f"{year}-{month_names[month-1]}-busstate.csv"
 
-        # save 
+        if filepath.exists():
+            existing_df = pd.read_csv(filepath)
+            existing_df['DATE'] = pd.to_datetime(existing_df['DATE'], errors='coerce')
+
+            # Merge existing + new and remove exact duplicate rows across shared columns.
+            common_cols = [col for col in month_df.columns if col in existing_df.columns]
+            combined_df = pd.concat([existing_df, month_df], ignore_index=True)
+            before_dedupe = len(combined_df)
+            combined_df = combined_df.drop_duplicates(subset=common_cols, keep='last')
+            deduped = before_dedupe - len(combined_df)
+            month_df = combined_df
+            print(f"Merged with existing file and removed {deduped} duplicate records for {month_names[month-1]} {year}")
+
+        # sort by date and event time
+        month_df = month_df.sort_values(by=['DATE', 'EVENT_TIME'])
+
+        # save merged/deduped output
         month_df.to_csv(filepath, index=False)
+
         # output message
         print(f"Saved {len(month_df)} records for {month_names[month-1]} {year} to '{filepath}'")
