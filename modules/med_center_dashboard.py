@@ -51,8 +51,11 @@ def med_center_dashboard(year, month):
     start = time.perf_counter()
     print(f"Processing medical center dashboard for {month_abbrev} {full_year}...")
 
+    # current dir for cleaned folder
+    dir = "K:/AP/TTM/Data/WMC_Dashboard/busstate_cleaned"
+
     # process busstate data for medical center route
-    mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev)
+    mc_busstate_consolidated = process_mc_busstate(full_year, month_abbrev, dir)
     
     ###########################################################
     # # NOTE: This is for testing purposes of the combine stops function
@@ -178,6 +181,9 @@ def process_mc_busstate(year, month, current_dir = REPO_ROOT, repo_dir = REPO_RO
         current_dir = REPO_ROOT / "busstate_cleaned"
     else:
         current_dir = pathlib.Path(current_dir)
+
+    #current_dir = "K:/AP/TTM/Data/WMC_Dashboard/busstate_cleaned" 
+
     busstate_path = current_dir / f"{year}-{month}-busstate.csv"
     busstate_df = pd.read_csv(busstate_path) # Now cleaned busstate data read in
 
